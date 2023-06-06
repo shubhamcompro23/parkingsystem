@@ -2,6 +2,7 @@ const express = require("express")
 const dotenv = require('dotenv').config()
 const app = express()
 const userRoutes = require("./routes/userRoutes")
+const parkingLotRoutes = require("./routes/parkingRoutes")
 
 
 const port = process.env.port
@@ -11,6 +12,7 @@ app.use(express.json())
 
 //Routes
 app.use('/', userRoutes)
+app.use('/parkingLots', parkingLotRoutes)
 
 
 app.use((req,res,next)=>{

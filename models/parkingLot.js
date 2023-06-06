@@ -13,15 +13,15 @@ AWS.config.update({
 const dynamodb = new AWS.DynamoDB()
 
 
-async function user() {
+async function parkingLot() {
   try {
     const params = {
-      TableName: 'User',
+      TableName: 'ParkingLot',
       KeySchema: [
-        { AttributeName: 'userId', KeyType: 'HASH' }
+        { AttributeName: 'lotId', KeyType: 'HASH' }
       ],
       AttributeDefinitions: [
-        { AttributeName: 'userId', AttributeType: 'S' }
+        { AttributeName: 'lotId', AttributeType: 'S' }
       ],
       ProvisionedThroughput: {
         ReadCapacityUnits: 5,
@@ -29,11 +29,11 @@ async function user() {
       }
     };
 
-    const response = await dynamodbInstance.dynamodb.createTable(params).promise();
+    const response = await dynamodb.createTable(params).promise();
     console.log('Table created successfully:', response);
   } catch (error) {
     console.error('Error creating table:', error);
   }
 }
 
-user()
+parkingLot()
