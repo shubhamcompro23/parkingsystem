@@ -47,6 +47,8 @@ async function createParkingLot(req,res) {
         }
 
         // console.log("params--", JSON.stringify(params, 0 , 2))
+
+
     
         const data = await db.dynamodb.batchWrite(params).promise()
 
@@ -55,7 +57,7 @@ async function createParkingLot(req,res) {
         res.send({
             message: "Parking Lot successfully created",
             statusCode: 201,
-            data: params
+            data: data
         })
     }catch(err){
         return err
