@@ -1,49 +1,61 @@
-const getItem = require("../database/dbOperations/getItem")
+const dbOperations = require("../database/dbOperations")
 
 async function getUser(req) {
-
-    const options = {
-        table : "User",
-        key: {
-            userId: req.body.userId
+    try{
+        const options = {
+            table : "User",
+            key: {
+                userId: req.body.userId
+            }
         }
+    
+        const user = await dbOperations.get(options)
+    
+        return user
+    }catch(err){
+        return err
     }
-
-    const user = await getItem(options)
-
-    if(!user){
-        res.send({
-            statusCode: 403,
-            message: "User not found"
-        })
-    }
-
-    return user
 }
 
-async function getParkingLot(req) {
-
-    const options = {
-        table : "ParkingLot",
-        key: {
-            lotId: req.params.lotId
+async function getParkingLot(req,res) {
+    try{
+        const options = {
+            table : "ParkingLot",
+            key: {
+                lotId: req.params.lotId
+            }
         }
+    
+        const parkingLot = await dbOperations.get(options)
+
+        return parkingLot
+    }catch(err){
+        return err
     }
+}
 
-    const parkingLot = await getItem(options)
+async function vehicleDetails(req,res) {
+    try{
 
-    if(!parkingLot){
-        res.send({
-            statusCode: 403,
-            message: "ParkingLot not found"
-        })
+        let options = {
+            table : "Vehicle",
+            key: {
+                lotId: req.params.lotId,
+                vehicleNumber: req.params.vehicleNumber
+            }
+        }
+    
+        const vehicleDetails = await dbOperations.get(options)
+
+        return vehicleDetails
+    }catch(err){
+        return err
     }
-
-    return user
 }
 
 
 module.exports = {
     getUser,
-    getParkingLot
+    getParkingLot,
+    vehicleDetails
 }

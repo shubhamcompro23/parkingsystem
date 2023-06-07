@@ -1,10 +1,10 @@
-const getItem = require("../dbOperations/getItem")
+const common = require("../utils/common")
 
 
 async function isAdmin(req,res,next) {
     try{
 
-        const user = await getItem(req)
+        const user = await common.getUser(req)
 
         if(user.role != "admin"){
             res.send({

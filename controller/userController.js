@@ -1,10 +1,9 @@
-const putItem = require("../database/dbOperations/putItem")
-const getItem = require("../database/dbOperations/getItem")
 const { randomUUID } = require('crypto')
+const dbOperations = require("../database/dbOperations")
+
 
 
 async function register(req,res) {
-    console.log("controller")
     try{
         let uniqueId = randomUUID()
         let options = {
@@ -16,7 +15,7 @@ async function register(req,res) {
             },
             conditionExpression : `attribute_not_exists(userId) AND userId <> : ${uniqueId}`
         }
-        let user = await putItem(options)
+        let user = await dbOperations.put(options)
     
         console.log("newUser",user)
         res.send({
