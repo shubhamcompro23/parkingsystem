@@ -12,6 +12,8 @@ router.get('/:lotId/vehicles/:vehicleNumber/vehiclePosition',  parkingController
 
 router.post('/create',  parkingController.createParkingLot)
 
+router.post('/:lotId/vehicles/:vehicleNumber/park',  parkingController.parkVehicle)
+
 router.delete('/:lotId/delete',  parkingController.deleteParkingLot)
 
 module.exports = router

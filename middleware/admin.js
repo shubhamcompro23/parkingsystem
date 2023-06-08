@@ -7,7 +7,7 @@ async function isAdmin(req,res,next) {
         const user = await common.getUser(req)
 
         if(user.role != "admin"){
-            res.send({
+            return res.send({
                 statusCode: 403,
                 message: "user does not have access"
             })
@@ -15,7 +15,7 @@ async function isAdmin(req,res,next) {
         next()
     
     }catch(err){
-        res.send({
+        return res.send({
             statusCode: 500,
             message: "Internal server eror"
         })
