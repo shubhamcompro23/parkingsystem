@@ -76,20 +76,20 @@ async function deleteItem(options) {
         Key: options.key
     }
 
-    if(options.ConditionExpression){
+    if(options.conditionExpression){
         params.ConditionExpression = options.conditionExpression
     }
-    if(options.ExpressionAttributeNames){
+    if(options.expressionAttributeNames){
         params.ExpressionAttributeNames =  options.expressionAttributeNames
     }
-    if(options.ExpressionAttributeValue){
+    if(options.expressionAttributeValue){
         params.ExpressionAttributeValue = options.expressionAttributeValue
     }
-    if(options.ReturnValues){
+    if(options.returnValues){
         params.ReturnValues = options.returnValues
     }
 
-    const data = await db.dynamodb.batchWrite(params).promise()
+    const data = await db.dynamodb.delete(params).promise()
 
     return data
 }
@@ -105,8 +105,12 @@ async function update(options) {
         UpdateExpression: options.updateExpression
     }
 
+    if(options.returnValues){
+        params.ReturnValues = options.returnValues
+    }
+
     if(options.conditionExpression){
-        params.ConditionExpression = conditionExpression
+        params.ConditionExpression = options.conditionExpression
     }
   
   

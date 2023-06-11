@@ -16,8 +16,6 @@ async function register(req,res) {
             conditionExpression : `attribute_not_exists(userId) AND userId <> : ${uniqueId}`
         }
         let user = await dbOperations.put(options)
-    
-        console.log("newUser",user)
         res.send({
             status: 201,
             message: "User Successfully Registered",

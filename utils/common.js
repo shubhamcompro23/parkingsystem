@@ -34,11 +34,7 @@ async function vehicleDetails(req) {
             vehicleNumber: req.params.vehicleNumber
         }
     }
-
-    console.log("options",options)
-
     const vehicleDetails = await dbOperations.get(options)
-    console.log("vehicleDetails",vehicleDetails)
     return vehicleDetails
 }
 

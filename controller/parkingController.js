@@ -3,7 +3,6 @@ const db = require("../database/db")
 const dbOperations = require("../database/dbOperations")
 
 const common = require("../utils/common");
-const { log } = require('console');
 
 async function createParkingLot(req, res) {
     try {
@@ -185,8 +184,6 @@ async function allocatedAndAvailableSlotCount(req,res) {
         }
         const parkingLotLevels = await dbOperations.query(queryOptions)
 
-        console.log("parkingLotLevels.Items", parkingLotLevels.Items)
-
         let availableSlot = 0
         let allocatedSlot = 0
 
@@ -213,11 +210,11 @@ async function allocatedAndAvailableSlotCount(req,res) {
 
 }
 
-async function vehiclePosition() {
+async function vehiclePosition(req,res) {
     try{
             
         //check if the parking lot is exist or not
-        const parkingLot = await common.getParkingLot(req,res)
+        const parkingLot = await common.getParkingLot(req)
 
         if(Object.keys(parkingLot).length === 0){
             return res.send({
@@ -226,7 +223,7 @@ async function vehiclePosition() {
             })
         }
 
-        const details = await common.vehicleDetails(req,res)
+        const details = await common.vehicleDetails(req)
 
         if(Object.keys(details).length === 0){
             return res.send({
@@ -239,9 +236,9 @@ async function vehiclePosition() {
             message: "Successfully get the vehicle position",
             statusCode: 200,
             data: {
-                lotId: details.lotId,
-                levelNumber: details.levelNumber,
-                slotNumber: details.slotNumber
+                lotId: details.Item.lotId,
+                levelNumber: details.Item.levelNumber,
+                slotNumber: details.Item.slotNumber
             }
         })
 
@@ -254,11 +251,11 @@ async function vehiclePosition() {
     }
 }
 
-async function vehicleCountByColour() {
+async function vehicleCountByColour(req, res ) {
     try{
             
         //check if the parking lot is exist or not
-        const parkingLot = await common.getParkingLot(req,res)
+        const parkingLot = await common.getParkingLot(req)
 
         if(Object.keys(parkingLot).length === 0){
             return res.send({
@@ -272,7 +269,7 @@ async function vehicleCountByColour() {
             KeyConditionExpression: "lotId = :lotId",
             ExpressionAttributeValues : {
                 ":lotId": req.params.lotId,
-                ":colour": req.body.black
+                ":colour": req.body.colour
             },
             FilterExpression: 'colour = :colour',
         }
@@ -296,11 +293,11 @@ async function vehicleCountByColour() {
     }
 }
 
-async function parkingLotStatus() {
+async function parkingLotStatus( req, res ) {
     try{
             
         //check if the parking lot is exist or not
-        const parkingLot = await common.getParkingLot(req,res)
+        const parkingLot = await common.getParkingLot(req)
 
         if(Object.keys(parkingLot).length === 0){
             return res.send({
@@ -321,8 +318,8 @@ async function parkingLotStatus() {
 
         let status = []
 
-        for (let i = 0; i < parkingLotLevels.Items.length; i++) {
-            let str = `${parkingLotLevels.Items[i].vehicleNumber}(${parkingLotLevels.Items[i].levelNumber}-${parkingLotLevels.Items[i].slotNumber})${parkingLotLevels.Items[i].status}`
+        for (let i = 0; i < data.Items.length; i++) {
+            let str = `${data.Items[i].vehicleNumber}(${data.Items[i].levelNumber}-${data.Items[i].slotNumber})${data.Items[i].status}`
             status.push(str)
         }
 
@@ -352,8 +349,6 @@ async function parkVehicle(req,res) {
         //check if the parking lot is exist or not
         const parkingLot = await common.getParkingLot(req)
 
-        console.log("parkingLot", parkingLot)
-
         if(Object.keys(parkingLot).length === 0){
             return res.send({
                 message: "ParkingLot not found",
@@ -365,8 +360,6 @@ async function parkVehicle(req,res) {
 
         let reservation = await common.vehicleDetails(req)
 
-        console.log("reservation----", reservation)
-
         if(reservation.Item?.status === "parked"){
             return res.send({
                 message: "your vehicle is already parked",
@@ -375,7 +368,7 @@ async function parkVehicle(req,res) {
         }
 
         if(reservation.Item?.status === "resereved"){
-            validity = (Date.now()-startTime)/3600000 < parkingLot.Item.maxReserveTimeInHrs
+            validity = (Date.now()-reservation.Item.startTime)/3600000 < parkingLot.Item.maxReserveTimeInHrs
         }
 
         //if parkingfSlot is not reserved
@@ -521,10 +514,10 @@ async function parkVehicle(req,res) {
                         let index = reserveSlotLevelDetails.Item.allocatedSlot.indexOf(reservation.Item.slotNumber)
                         let resrevedSlotNumber = reserveSlotLevelDetails.Item.allocatedSlot.splice(index, 1)[0] 
 
-                        let reservedAvailableSlot = previousLevel.availableSlot.push(resrevedSlotNumber)
-                        let sortedavailableSlotArray= reservedAvailableSlot.sort()
+                        let reservedAvailableSlot = reserveSlotLevelDetails.Item.availableSlot.push(resrevedSlotNumber)
+                        let sortedavailableSlotArray= reserveSlotLevelDetails.Item.availableSlot.sort()
 
-                        let = {
+                        let params = {
                             table: "ParkingLevel",
                             expressionAttributeNames: {
                                "#AVL": "availableSlot",
@@ -539,10 +532,10 @@ async function parkVehicle(req,res) {
                               LevelNo: reserveSlotLevelDetails.Item.LevelNo
                             },
                             returnValues: "ALL_NEW", 
-                            updateExpression: "Set #AVL= :avl, #ALC= :clc"
+                            updateExpression: "Set #AVL= :avl, #ALC= :alc"
                         };
 
-                        const updatedResrsevedLevel = await dbOperations.update(updateParams)
+                        const updatedResrsevedLevel = await dbOperations.update(params)
                     
                         //update a record with all the required details in the VEHICLE table
                         startTime = Date.now()
@@ -552,18 +545,18 @@ async function parkVehicle(req,res) {
                             expressionAttributeNames: {
                                 "#LVL": "levelNumber",
                                 "#SLT": "slotNumber",
-                                "ST": "startTime",
-                                "STS": "status",
+                                "#ST": "startTime",
+                                "#STS": "status",
                                 },
                             expressionAttributeValues: {
-                                ":LVL": parkingLevelDetails.Items[i].LevelNo,
-                                ":SLT": slotNumber,
-                                ":ST": startTime,
-                                ":STS": req.body.status,
+                                ":lvl": parkingLevelDetails.Items[i].LevelNo,
+                                ":slt": slotNumber,
+                                ":st": startTime,
+                                ":sts": req.body.status,
                             },
                             key: {
-                                lotId: req.body.lotId,
-                                vehicleNumber: parkingLevelDetails[i].levelNo
+                                lotId: req.params.lotId,
+                                vehicleNumber: req.params.vehicleNumber
                             },
                             returnValues: "ALL_NEW", 
                             updateExpression: "Set #LVL= :lvl, #SLT= :slt,#ST= :st, #STS= :sts"
@@ -584,12 +577,12 @@ async function parkVehicle(req,res) {
                 const updateVehicleParams = {
                     table: "Vehicle",
                     expressionAttributeNames: {
-                        "ST": "startTime",
-                        "STS": "status",
+                        "#ST": "startTime",
+                        "#STS": "status",
                     },
                     expressionAttributeValues: {
-                        ":ST": startTime,
-                        ":STS": req.body.status,
+                        ":st": startTime,
+                        ":sts": req.body.status,
                     },
                     key: {
                         lotId: req.params.lotId,
@@ -601,6 +594,157 @@ async function parkVehicle(req,res) {
 
                 const parked = await dbOperations.update(updateVehicleParams)
             }
+        }
+
+        if(Object.keys(reservation).length > 0 &&  !validity){
+
+            let condition = false
+            let lastEvaluatedKey = null
+            let batchSize = 5
+
+            for (let i = 0; i < parkingLot.Item.totalLevel; i = i + 5) {
+                if(condition){
+                    break ;
+                }
+
+                const queryParams = {
+                    table: "ParkingLevel",
+                    KeyConditionExpression: '#lotId = :lotId',
+                    ExpressionAttributeNames: { '#lotId': 'lotId' },
+                    ExpressionAttributeValues: { ':lotId': req.params.lotId },
+                    Limit: batchSize,
+                    ExclusiveStartKey: lastEvaluatedKey
+                };
+
+                const parkingLevelDetails = await dbOperations.query(queryParams)
+
+                for (let i = 0; i < parkingLevelDetails.Items.length; i++) {
+                    if(parkingLevelDetails.Items[i].availableSlot.length > 0){
+                        condition = true
+                        slotNumber = parkingLevelDetails.Items[i].availableSlot.shift()
+                        let allocatedSlot = parkingLevelDetails.Items[i].allocatedSlot.push(slotNumber)
+                        levelNumber =  parkingLevelDetails.Items[i].LevelNo
+                        const updateParams = {
+                            table: "ParkingLevel",
+                            expressionAttributeNames: {
+                                "#AVL": "availableSlot",
+                                "#ALC": "allocatedSlot"
+                            },
+                            expressionAttributeValues: {
+                                ":avl": parkingLevelDetails.Items[i].availableSlot,
+                                ":alc": parkingLevelDetails.Items[i].allocatedSlot
+                            },
+                            key: {
+                               lotId: req.params.lotId,
+                               LevelNo: parkingLevelDetails.Items[i].LevelNo
+                            },
+                            returnValues: "ALL_NEW", 
+                            updateExpression: "Set #AVL= :avl, #ALC= :alc"
+                        };
+
+                        const updatedData = await dbOperations.update(updateParams)
+
+                        // update the previous reserve slot
+
+                        const reserveSlotLevelParams= {
+                            key: {
+                              lotId: req.params.lotId,
+                              LevelNo: reservation.Item.levelNumber
+                            },
+                            table : "ParkingLevel"
+                        };
+
+                        const reserveSlotLevelDetails = await dbOperations.get(reserveSlotLevelParams)
+
+                        let index = reserveSlotLevelDetails.Item.allocatedSlot.indexOf(reservation.Item.slotNumber)
+                        let resrevedSlotNumber = reserveSlotLevelDetails.Item.allocatedSlot.splice(index, 1)[0] 
+
+                        let reservedAvailableSlot = reserveSlotLevelDetails.Item.availableSlot.push(resrevedSlotNumber)
+                        let sortedavailableSlotArray= reserveSlotLevelDetails.Item.availableSlot.sort()
+
+                        let params = {
+                            table: "ParkingLevel",
+                            expressionAttributeNames: {
+                               "#AVL": "availableSlot",
+                               "#ALC": "allocatedSlot"
+                              },
+                            expressionAttributeValues: {
+                               ":avl": sortedavailableSlotArray,
+                               ":alc": reserveSlotLevelDetails.Item.allocatedSlot,
+                            },
+                            key: {
+                              lotId: reserveSlotLevelDetails.Item.lotId,
+                              LevelNo: reserveSlotLevelDetails.Item.LevelNo
+                            },
+                            returnValues: "ALL_NEW", 
+                            updateExpression: "Set #AVL= :avl, #ALC= :alc"
+                        };
+
+                        const updatedResrsevedLevel = await dbOperations.update(params)
+                    
+                        //update a record with all the required details in the VEHICLE table
+                        startTime = Date.now()
+                
+                        const updateVehicleParams = {
+                            table: "Vehicle",
+                            expressionAttributeNames: {
+                                "#LVL": "levelNumber",
+                                "#SLT": "slotNumber",
+                                "#ST": "startTime",
+                                "#STS": "status",
+                                },
+                            expressionAttributeValues: {
+                                ":lvl": parkingLevelDetails.Items[i].LevelNo,
+                                ":slt": slotNumber,
+                                ":st": startTime,
+                                ":sts": req.body.status,
+                            },
+                            key: {
+                                lotId: req.params.lotId,
+                                vehicleNumber: req.params.vehicleNumber
+                            },
+                            returnValues: "ALL_NEW", 
+                            updateExpression: "Set #LVL= :lvl, #SLT= :slt,#ST= :st, #STS= :sts"
+                        };
+
+                        const parked = await dbOperations.update(updateVehicleParams)
+
+                        break;
+                    }
+
+                }
+
+                lastEvaluatedKey = parkingLevelDetails.LastEvaluatedKey
+            }
+
+            if(condition === false ){
+                // parked in the reserve Slot i.e update the vehicle table
+                startTime = Date.now()
+                levelNumber = reservation.Item.levelNumber
+                slotNumber = reservation.Item.slotNumber
+
+                const updateVehicleParams = {
+                    table: "Vehicle",
+                    expressionAttributeNames: {
+                        "ST": "startTime",
+                        "STS": "status",
+                    },
+                    expressionAttributeValues: {
+                        ":st": startTime,
+                        ":sts": req.body.status,
+                    },
+                    key: {
+                        lotId: req.params.lotId,
+                        vehicleNumber: req.params.vehicleNumber
+                    },
+                    returnValues: "ALL_NEW", 
+                    updateExpression: "Set #ST= :st, #STS= :sts"
+                };
+
+                const parked = await dbOperations.update(updateVehicleParams)
+            }
+
+
         }
 
 
@@ -620,7 +764,408 @@ async function parkVehicle(req,res) {
             }
         })
     }catch(err){
-        console.log("error--", err)
+        res.send({
+            message: "Internal server error",
+            statusCode: 500,
+            err
+        })
+    }
+}
+
+async function reserveParkingSlot( req, res ) {
+    try{
+        let levelNumber
+        let slotNumber
+        let startTime
+        let validity
+    
+        const parkingLot = await common.getParkingLot(req)
+    
+        if(Object.keys(parkingLot).length === 0){
+            return res.send({
+                message: "ParkingLot not found",
+                statusCode: 404
+            })
+        }
+    
+        //check the reservation of vehicle
+    
+        let reservation = await common.vehicleDetails(req)
+    
+        if(reservation.Item?.status === "parked"){
+            return res.send({
+                message: "your vehicle is already parked",
+                statusCode: 400
+            }) 
+        }
+    
+        if(reservation.Item?.status === "resereved"){
+            validity = (Date.now()-reservation.Item.startTime)/3600000 < parkingLot.Item.maxReserveTimeInHrs
+            // validity = (Date.now()-startTime)/3600000 < parkingLot.Item.maxReserveTimeInHrs
+        }
+    
+        if(reservation.Item?.status === "resereved" && validity ){
+            return res.send({
+                message: "You already reserved the parking Slot",
+                statusCode: 400
+            }) 
+        }
+    
+        if( Object.keys(reservation).length === 0 ){
+            let condition = false
+            let lastEvaluatedKey = null
+            let batchSize = 5
+    
+            for (let i = 0; i < parkingLot.Item.totalLevel; i = i + 5) {
+                if(condition){
+                    break ;
+                }
+    
+                const queryParams = {
+                    table: "ParkingLevel",
+                    KeyConditionExpression: '#lotId = :lotId',
+                    ExpressionAttributeNames: { '#lotId': 'lotId' },
+                    ExpressionAttributeValues: { ':lotId': req.params.lotId },
+                    Limit: batchSize,
+                    ExclusiveStartKey: lastEvaluatedKey
+                };
+    
+                const parkingLevelDetails = await dbOperations.query(queryParams)
+    
+                for (let i = 0; i < parkingLevelDetails.Items.length; i++) {
+                    if(parkingLevelDetails.Items[i].availableSlot.length > 0){
+                        condition = true
+                        slotNumber = parkingLevelDetails.Items[i].availableSlot.shift()
+                        let allocatedSlot = parkingLevelDetails.Items[i].allocatedSlot.push(slotNumber)
+                        levelNumber =  parkingLevelDetails.Items[i].LevelNo
+                        const updateParams = {
+                            table: "ParkingLevel",
+                            expressionAttributeNames: {
+                                "#AVL": "availableSlot",
+                                "#ALC": "allocatedSlot"
+                            },
+                            expressionAttributeValues: {
+                                ":avl": parkingLevelDetails.Items[i].availableSlot,
+                                ":alc": parkingLevelDetails.Items[i].allocatedSlot
+                            },
+                            key: {
+                               lotId: req.params.lotId,
+                               LevelNo: parkingLevelDetails.Items[i].LevelNo
+                            },
+                            returnValues: "ALL_NEW", 
+                            updateExpression: "Set #AVL= :avl, #ALC= :alc"
+                        };
+    
+                        const updatedData = await dbOperations.update(updateParams)
+    
+                        startTime = Date.now()
+    
+                        let options = {
+                            item : {
+                                lotId: req.params.lotId,
+                                levelNumber: parkingLevelDetails.Items[i].LevelNo,
+                                slotNumber: slotNumber,
+                                userId: req.body.userId,
+                                colour: req.body.colour,
+                                vehicleNumber: req.params.vehicleNumber,
+                                startTime: startTime,
+                                isReserve: true,
+                                status: req.body.status,
+                            },
+                            table: "Vehicle",
+                        }
+                        const reserve = await dbOperations.put(options)
+                        break;
+                    }
+                }
+    
+                lastEvaluatedKey = parkingLevelDetails.LastEvaluatedKey
+            }
+    
+            if(condition === false ){
+                return res.send({
+                    message: "All parking slot are full",
+                    statusCode: 400,
+                })
+            }
+        }
+    
+        if( Object.keys(reservation).length > 0 && !validity ){
+            let condition = false
+            let lastEvaluatedKey = null
+            let batchSize = 5
+    
+            for (let i = 0; i < parkingLot.Item.totalLevel; i = i + 5) {
+                if(condition){
+                    break ;
+                }
+    
+                const queryParams = {
+                    table: "ParkingLevel",
+                    KeyConditionExpression: '#lotId = :lotId',
+                    ExpressionAttributeNames: { '#lotId': 'lotId' },
+                    ExpressionAttributeValues: { ':lotId': req.params.lotId },
+                    Limit: batchSize,
+                    ExclusiveStartKey: lastEvaluatedKey
+                };
+    
+                const parkingLevelDetails = await dbOperations.query(queryParams)
+    
+                for (let i = 0; i < parkingLevelDetails.Items.length; i++) {
+                    if(parkingLevelDetails.Items[i].availableSlot.length > 0){
+                        condition = true
+                        slotNumber = parkingLevelDetails.Items[i].availableSlot.shift()
+                        let allocatedSlot = parkingLevelDetails.Items[i].allocatedSlot.push(slotNumber)
+                        levelNumber =  parkingLevelDetails.Items[i].LevelNo
+                        const updateParams = {
+                            table: "ParkingLevel",
+                            expressionAttributeNames: {
+                                "#AVL": "availableSlot",
+                                "#ALC": "allocatedSlot"
+                            },
+                            expressionAttributeValues: {
+                                ":avl": parkingLevelDetails.Items[i].availableSlot,
+                                ":alc": parkingLevelDetails.Items[i].allocatedSlot
+                            },
+                            key: {
+                               lotId: req.params.lotId,
+                               LevelNo: parkingLevelDetails.Items[i].LevelNo
+                            },
+                            returnValues: "ALL_NEW", 
+                            updateExpression: "Set #AVL= :avl, #ALC= :alc"
+                        };
+    
+                        const updatedData = await dbOperations.update(updateParams)
+    
+                        //update a record with all the required details in the VEHICLE table
+                        startTime = Date.now()
+    
+                        const updateVehicleParams = {
+                            table: "Vehicle",
+                            expressionAttributeNames: {
+                                "#LVL": "levelNumber",
+                                "#SLT": "slotNumber",
+                                "#ST": "startTime",
+                                "#STS": "status",
+                                },
+                            expressionAttributeValues: {
+                                ":lvl": parkingLevelDetails.Items[i].LevelNo,
+                                ":slt": slotNumber,
+                                ":st": startTime,
+                                ":sts": req.body.status,
+                            },
+                            key: {
+                                lotId: req.params.lotId,
+                                vehicleNumber: req.params.vehicleNumber
+                            },
+                            returnValues: "ALL_NEW", 
+                            updateExpression: "Set #LVL= :lvl, #SLT= :slt, #ST= :st, #STS= :sts"
+                        };
+    
+                        const parked = await dbOperations.update(updateVehicleParams)
+    
+                        //Update the level(previous reserve  level) in the PARKING LEVEL table.
+    
+                        const reserveSlotLevelParams= {
+                            key: {
+                              lotId: req.params.lotId,
+                              LevelNo: reservation.Item.levelNumber
+                            },
+                            table : "ParkingLevel"
+                        };
+    
+                        const reserveSlotLevelDetails = await dbOperations.get(reserveSlotLevelParams)
+    
+                        let index = reserveSlotLevelDetails.Item.allocatedSlot.indexOf(reservation.Item.slotNumber)
+                        let resrevedSlotNumber = reserveSlotLevelDetails.Item.allocatedSlot.splice(index, 1)[0] 
+                        reserveSlotLevelDetails.Item.availableSlot.push(resrevedSlotNumber)
+            
+                        let sortedavailableSlotArray= reserveSlotLevelDetails.Item.availableSlot.sort()
+                        let updatepreviousReserveParams = {
+                            table: "ParkingLevel",
+                            expressionAttributeNames: {
+                               "#AVL": "availableSlot",
+                               "#ALC": "allocatedSlot"
+                              },
+                            expressionAttributeValues: {
+                               ":avl": sortedavailableSlotArray,
+                               ":alc": reserveSlotLevelDetails.Item.allocatedSlot,
+                            },
+                            key: {
+                              lotId: reserveSlotLevelDetails.Item.lotId,
+                              LevelNo: reserveSlotLevelDetails.Item.LevelNo
+                            },
+                            returnValues: "ALL_NEW", 
+                            updateExpression: "Set #AVL= :avl, #ALC= :alc"
+                        };
+                        const updatedResrsevedLevel = await dbOperations.update(updatepreviousReserveParams)
+                        break;
+                    }
+                }
+            }
+            if(condition === false ){
+                res.send({
+                    message: "All parking slot are full",
+                    statusCode: 400,
+                })
+            }
+        }
+        res.send({
+            message: "Successfully parked",
+            statusCode: 200,
+            data: {
+                lotId  : req.params.lotId,
+                LevelNumber :   levelNumber,
+                slotNumber : slotNumber,
+                veichleNumber: req.params.vehicleNumber,
+                userId :  req.body.userId,
+                colour: req.body.colour,
+                startTime: new Date(startTime),
+                status:  req.body.status
+    
+            }
+        })
+    }catch(err){
+        res.send({
+            message: "Internal server error",
+            statusCode: 500,
+            err
+        })
+    }
+}
+
+async function unParkVehicle( req, res ) {
+    try{
+        const parkingLot = await common.getParkingLot(req)
+    
+        if(Object.keys(parkingLot).length === 0){
+            return res.send({
+                message: "ParkingLot not found",
+                statusCode: 404
+            })
+        }
+        let parkingDetails = await common.vehicleDetails(req)
+
+        if(Object.keys(parkingDetails).length === 0 || parkingDetails.Item.status === "resereved"){
+            return res.send({
+                message: "Vehicle not parked",
+                statusCode: 404
+            })
+        }
+
+        let options = {
+            table: "Vehicle",
+            key: {
+                lotId: req.params.lotId,
+                vehicleNumber: req.params.vehicleNumber
+            },
+            returnValues: "ALL_OLD"
+        }
+        let deleteParkingRecord = await dbOperations.deleteItem(options)
+
+        // Create a record in the INVOICE table with all the details.
+
+        let uniqueId = randomUUID()
+
+        let endTime = Date.now()
+
+        let totalParkingHrs = (endTime -  parkingDetails.Item.startTime)/ 3600000
+
+        let totalCharges = parkingLot.Item.baseCharges 
+
+        if(totalParkingHrs - parkingLot.Item.baseChargeTimeInHrs > 0){
+            totalCharges = totalCharges + (totalParkingHrs - parkingLot.Item.baseChargeTimeInHrs) * parkingLot.Item.chargesPerHour
+        }
+
+        if(parkingDetails.Item.isReserve){
+            totalCharges = totalCharges + parkingLot.Item.reserveCharges
+        }
+
+
+        let invoiceOptions = {
+            table: "Invoice",
+            item: {
+                invoiceId: uniqueId,
+                lotId: req.params.lotId,
+                levelNumber: parkingDetails.Item.levelNumber,
+                slotNumber: parkingDetails.Item.slotNumber,
+                userId: parkingDetails.Item.userId,
+                vehicleNumber: req.params.vehicleNumber,
+                starttime: parkingDetails.Item.startTime,
+                endTime: endTime,
+                baseCharges: parkingLot.Item.baseCharges,
+                baseChargeTimeInHrs: parkingLot.Item.baseChargeTimeInHrs,
+                chargesPerHour: parkingLot.Item.chargesPerHour,
+                totalParkingHrs: totalParkingHrs,
+                totalCharges: totalCharges,
+            }
+        }
+
+        if(parkingDetails.Item.isReserve){
+            invoiceOptions.item.reserveCharges = parkingLot.Item.reserveCharges,
+            invoiceOptions.item.maxReserveTimeInHrs = parkingLot.Item.maxReserveTimeInHrs
+        }
+
+        let createInvoice = await dbOperations.put(invoiceOptions)
+
+        const levelParams= {
+            key: {
+              lotId: req.params.lotId,
+              LevelNo: parkingDetails.Item.levelNumber
+            },
+            table : "ParkingLevel"
+        };
+
+        const levelDetails = await dbOperations.get(levelParams)
+
+        let index = levelDetails.Item.allocatedSlot.indexOf(parkingDetails.Item.slotNumber)
+        let resrevedSlotNumber = levelDetails.Item.allocatedSlot.splice(index, 1)[0] 
+        levelDetails.Item.availableSlot.push(resrevedSlotNumber)
+
+        let sortedavailableSlotArray= levelDetails.Item.availableSlot.sort()
+
+        let updateOptions = {
+            table: "ParkingLevel",
+            expressionAttributeNames: {
+               "#AVL": "availableSlot",
+               "#ALC": "allocatedSlot"
+              },
+            expressionAttributeValues: {
+               ":avl": sortedavailableSlotArray,
+               ":alc": levelDetails.Item.allocatedSlot,
+            },
+            key: {
+              lotId: levelDetails.Item.lotId,
+              LevelNo: levelDetails.Item.LevelNo
+            },
+            returnValues: "ALL_NEW", 
+            updateExpression: "Set #AVL= :avl, #ALC= :alc"
+        };
+
+        let updateParkingLevel = await dbOperations.update(updateOptions)
+
+        res.send({
+
+            message: "Successfully parked",
+            statusCode: 200,
+            data: {
+                invoiceId: uniqueId,
+                lotId: req.params.lotId,
+                levelNumber: parkingDetails.Item.levelNumber,
+                slotNumber: parkingDetails.Item.slotNumber,
+                userId: parkingDetails.Item.userId,
+                vehicleNumber: req.params.vehicleNumber,
+                starttime: new Date(parkingDetails.Item.startTime ),
+                endTime: new Date(endTime),
+                baseCharges: parkingLot.Item.baseCharges,
+                baseChargeTimeInHrs: parkingLot.Item.baseChargeTimeInHrs,
+                chargesPerHour: parkingLot.Item.chargesPerHour,
+                totalParkingHrs: totalParkingHrs,
+                totalCharges: totalCharges,
+            }
+        })
+
+    }catch(err){
         res.send({
             message: "Internal server error",
             statusCode: 500,
@@ -637,4 +1182,6 @@ module.exports = {
     vehicleCountByColour,
     parkingLotStatus,
     parkVehicle,
+    reserveParkingSlot,
+    unParkVehicle
 }
