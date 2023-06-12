@@ -5,7 +5,7 @@ async function isCustomer(req,res,next) {
     try{
 
         const user = await common.getUser(req)
-        if(user.role != "admin" || user.role != "customer"){
+        if(!(user.Item.role === "admin" || user.Item.role === "customer")){
             return res.send({
                 statusCode: 403,
                 message: "please register"
@@ -16,7 +16,8 @@ async function isCustomer(req,res,next) {
     }catch(err){
         return res.send({
             statusCode: 500,
-            message: "Internal server eror"
+            message: "Internal server eror",
+            err
         })
     }
 }
