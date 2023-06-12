@@ -2,12 +2,12 @@ const AWS = require("aws-sdk");
 const dotenv =  require("dotenv").config()
 
 
-// const region = process.env.REGION;
-// const endpoint = process.env.ENDPOINT;
+const region = process.env.REGION;
+const endpoint = process.env.ENDPOINT;
 
 AWS.config.update({
-    region:"local",
-    endpoint: "http://localhost:8000"
+  region,
+  endpoint
 })
 
 const dynamodb = new AWS.DynamoDB()
